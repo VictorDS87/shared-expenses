@@ -20,7 +20,7 @@
     @endforeach
     </nav>
     <div class="sidebar-bottom">
-        <div class="sidebar-note"><span class="sidebar-note-icon"><x-icon name="shield" :size="20"/></span><strong>Clareza em cada centavo.</strong><p>Despesas e rateios em um só lugar.</p></div>
+        <div class="sidebar-note"><span class="sidebar-note-icon"><x-icon name="shield" :size="20"/></span><strong>Clareza em cada centavo.</strong><p>Despesas, câmbio e rateios em um só lugar.</p></div>
         <div class="sidebar-user"><span class="avatar">{{ mb_strtoupper(mb_substr(auth()->user()->name, 0, 1)) }}</span><span class="user-meta"><strong>{{ auth()->user()->name }}</strong><small>Equipe financeira</small></span><form action="{{ route('logout') }}" method="POST">@csrf<button class="logout-button" title="Sair da conta" aria-label="Sair da conta"><x-icon name="logout" :size="18"/></button></form></div>
     </div>
 </aside>

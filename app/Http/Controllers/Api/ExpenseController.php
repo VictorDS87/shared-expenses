@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Actions\CreateExpense;
+use App\Actions\RetryExpenseConversion;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ExpenseResource;
 use App\Models\Expense;
@@ -13,8 +14,8 @@ class ExpenseController extends Controller
     public function index(Request $request)
     {
         $data = $request->validate([
-            'search' => ['nullable', 'string', 'max:100'], 'status' => ['nullable', 'in:converted'],
-            'currency' => ['nullable', 'in:BRL'], 'from' => ['nullable', 'date_format:Y-m-d'],
+            'search' => ['nullable', 'string', 'max:100'], 'status' => ['nullable', 'in:pending,converted,failed'],
+            'currency' => ['nullable', 'in:BRL,USD'], 'from' => ['nullable', 'date_format:Y-m-d'],
             'to' => ['nullable', 'date_format:Y-m-d', ...($request->filled('from') ? ['after_or_equal:from'] : [])],
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
         ]);
@@ -37,5 +38,10 @@ class ExpenseController extends Controller
     public function show(Expense $expense)
     {
         return new ExpenseResource($expense->load('allocations.unit'));
+    }
+
+    public function retry(Expense $expense, RetryExpenseConversion $retry)
+    {
+        return (new ExpenseResource($retry->handle($expense)->load('allocations.unit')))->response()->setStatusCode(202);
     }
 }

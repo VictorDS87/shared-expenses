@@ -69,7 +69,7 @@ final class ExpenseCreationTest extends TestCase
         return [
             ['amount', '0'], ['amount', '1000000000.00'], ['amount', '12.345'], ['amount', 10.5],
             ['date', '2026-02-30'], ['date', '2026-10-10'], ['description', '   '], ['supplier', ''],
-            ['currency', 'EUR'], ['currency', 'USD'], ['allocations.0.percentage', '49.99'], ['allocations.0.percentage', '50.001'],
+            ['currency', 'EUR'], ['allocations.0.percentage', '49.99'], ['allocations.0.percentage', '50.001'],
             ['allocations.0.unit_id', 99999], ['allocations.1.unit_id', 1], ['allocations', []],
         ];
     }

@@ -6,7 +6,9 @@ namespace App\Actions;
 
 use App\Domain\Expenses\AllocationCalculator;
 use App\Domain\Money\DecimalMoney;
+use App\Jobs\ConvertExpenseCurrency;
 use App\Models\Expense;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -28,7 +30,7 @@ final class CreateExpense
             'supplier' => ['required', 'string', 'max:160'],
             'date' => ['required', 'string', 'date_format:Y-m-d', 'before_or_equal:today'],
             'amount' => ['required', 'string', 'regex:/\A(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?\z/'],
-            'currency' => ['required', Rule::in(['BRL'])],
+            'currency' => ['required', Rule::in(['BRL', 'USD'])],
             'allocations' => ['required', 'array', 'min:1', 'max:100'],
             'allocations.*' => ['required', 'array:unit_id,percentage'],
             'allocations.*.unit_id' => ['required', 'integer', 'distinct', 'exists:units,id'],
@@ -66,17 +68,18 @@ final class CreateExpense
             $weights[(int) $allocation['unit_id']] = DecimalMoney::toMinor($allocation['percentage']);
         }
         $allocated = $this->calculator->allocate($amount, $weights);
+        $isBrl = $validated['currency'] === 'BRL';
 
-        return DB::transaction(function () use ($validated, $amount, $weights, $allocated): Expense {
+        return DB::transaction(function () use ($validated, $amount, $weights, $allocated, $isBrl): Expense {
             $expense = Expense::create([
                 'description' => trim($validated['description']),
                 'supplier' => trim($validated['supplier']),
                 'expense_date' => $validated['date'],
                 'amount_minor' => $amount,
                 'currency' => $validated['currency'],
-                'brl_amount_minor' => $amount,
-                'status' => 'converted',
-                'converted_at' => now(),
+                'brl_amount_minor' => $isBrl ? $amount : null,
+                'status' => $isBrl ? 'converted' : 'pending',
+                'converted_at' => $isBrl ? now() : null,
             ]);
 
             foreach ($weights as $unitId => $bps) {
@@ -84,8 +87,13 @@ final class CreateExpense
                     'unit_id' => $unitId,
                     'percentage_bps' => $bps,
                     'amount_minor' => $allocated[$unitId],
-                    'brl_amount_minor' => $allocated[$unitId],
+                    'brl_amount_minor' => $isBrl ? $allocated[$unitId] : null,
                 ]);
+            }
+
+            if (! $isBrl) {
+                // Same database connection: the queue row rolls back with the expense.
+                Bus::dispatch((new ConvertExpenseCurrency($expense->id))->onConnection('database')->beforeCommit());
             }
 
             return $expense->load('allocations.unit');

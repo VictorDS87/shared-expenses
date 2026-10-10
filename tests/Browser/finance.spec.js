@@ -103,3 +103,20 @@ test('report period and CSV export preserve the recorded cents', async ({ page }
   for await (const chunk of stream) chunks.push(chunk);
   expect(Buffer.concat(chunks).toString('utf8')).toContain('16,01');
 });
+
+test('USD is saved before conversion without contributing to consolidated BRL', async ({ page }) => {
+  await login(page);
+  await page.goto('/despesas/nova');
+  await page.locator('#description').fill('Browser pending USD');
+  await page.locator('#supplier').fill('International supplier');
+  await page.locator('#date').fill('2025-02-01');
+  await page.locator('#currency').selectOption('USD');
+  await page.locator('#amount').fill('15,01');
+  await page.locator('[data-unit]').first().selectOption({ index: 1 });
+  await page.getByRole('button', { name: 'Registrar despesa' }).click();
+  await expect(page).toHaveURL(/\/despesas\/\d+$/);
+  await expect(page.locator('main')).toContainText('15,01');
+  await expect(page.locator('.status-pending')).toBeVisible();
+  await page.goto('/relatorios?from=2025-02-01&to=2025-02-01');
+  await expect(page.locator('main')).toContainText('0,00');
+});

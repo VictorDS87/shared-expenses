@@ -19,6 +19,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/despesas/nova', [ExpenseController::class, 'create'])->name('expenses.create');
     Route::post('/despesas', [ExpenseController::class, 'store'])->name('expenses.store');
     Route::get('/despesas/{expense}', [ExpenseController::class, 'show'])->name('expenses.show');
+    Route::post('/despesas/{expense}/reprocessar', [ExpenseController::class, 'retry'])->middleware('throttle:10,1')->name('expenses.retry');
     Route::get('/unidades', [UnitController::class, 'index'])->name('units.index');
     Route::post('/unidades', [UnitController::class, 'store'])->name('units.store');
     Route::put('/unidades/{unit}', [UnitController::class, 'update'])->name('units.update');

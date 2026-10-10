@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Services\Exchange\ExchangeRateProvider;
+use App\Services\Exchange\FrankfurterExchangeRateProvider;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -12,7 +14,10 @@ class AppServiceProvider extends ServiceProvider
     /**
      * Register any application services.
      */
-    public function register(): void {}
+    public function register(): void
+    {
+        $this->app->bind(ExchangeRateProvider::class, FrankfurterExchangeRateProvider::class);
+    }
 
     /**
      * Bootstrap any application services.

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Web;
 
 use App\Actions\CreateExpense;
+use App\Actions\RetryExpenseConversion;
 use App\Http\Controllers\Controller;
 use App\Models\Expense;
 use App\Models\Unit;
@@ -15,8 +16,8 @@ class ExpenseController extends Controller
     {
         $filters = $request->validate([
             'search' => ['nullable', 'string', 'max:150'],
-            'status' => ['nullable', Rule::in(['converted'])],
-            'currency' => ['nullable', Rule::in(['BRL'])],
+            'status' => ['nullable', Rule::in(['pending', 'converted', 'failed'])],
+            'currency' => ['nullable', Rule::in(['BRL', 'USD'])],
             'from' => ['nullable', 'date_format:Y-m-d'],
             'to' => ['nullable', 'date_format:Y-m-d', ...($request->filled('from') ? ['after_or_equal:from'] : [])],
         ]);
@@ -52,11 +53,18 @@ class ExpenseController extends Controller
         }
         $expense = $createExpense->handle($payload);
 
-        return redirect()->route('expenses.show', $expense)->with('success', 'Despesa registrada e rateada. Os valores já compõem os relatórios.');
+        return redirect()->route('expenses.show', $expense)->with('success', $expense->currency === 'BRL' ? 'Despesa registrada e rateada. Os valores já compõem os relatórios.' : 'Despesa registrada. A conversão para reais será processada em segundo plano.');
     }
 
     public function show(Expense $expense)
     {
         return view('expenses.show', ['expense' => $expense->load('allocations.unit')]);
+    }
+
+    public function retry(Expense $expense, RetryExpenseConversion $retry)
+    {
+        $retry->handle($expense);
+
+        return redirect()->route('expenses.show', $expense)->with('success', 'Uma nova tentativa de conversão foi enviada para a fila.');
     }
 }

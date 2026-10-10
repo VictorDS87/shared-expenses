@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Actions\CreateExpense;
+use App\Jobs\ConvertExpenseCurrency;
 use App\Models\Unit;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\PersonalAccessToken;
 use PHPUnit\Framework\Attributes\DataProvider;
+use RuntimeException;
 use Tests\TestCase;
 
 final class ApiWorkflowTest extends TestCase
@@ -34,6 +36,18 @@ final class ApiWorkflowTest extends TestCase
         return $user;
     }
 
+    private function payload(string $currency = 'BRL'): array
+    {
+        $first = Unit::firstOrCreate(['slug' => 'operacoes'], ['name' => 'Operações', 'company' => 'Grupo Gridmidia']);
+        $second = Unit::firstOrCreate(['slug' => 'tecnologia'], ['name' => 'Tecnologia', 'company' => 'Grupo Gridmidia']);
+
+        return [
+            'description' => 'Licença corporativa', 'supplier' => 'Software Brasil',
+            'date' => '2026-10-09', 'amount' => '0.01', 'currency' => $currency,
+            'allocations' => [['unit_id' => $first->id, 'percentage' => '50'], ['unit_id' => $second->id, 'percentage' => '50']],
+        ];
+    }
+
     #[DataProvider('protectedEndpoints')]
     public function test_corporate_api_requires_authentication(string $method, string $uri): void
     {
@@ -44,7 +58,9 @@ final class ApiWorkflowTest extends TestCase
     {
         return [
             ['GET', 'units'], ['POST', 'units'], ['PUT', 'units/999'],
-            ['DELETE', 'auth/token'], ['GET', 'expenses'], ['POST', 'expenses'], ['GET', 'expenses/999'], ['GET', 'reports/units'],
+            ['GET', 'expenses'], ['POST', 'expenses'], ['GET', 'expenses/999'],
+            ['POST', 'expenses/999/retry'],
+            ['GET', 'reports/units'], ['DELETE', 'auth/token'],
         ];
     }
 
@@ -110,18 +126,6 @@ final class ApiWorkflowTest extends TestCase
         $this->getJson('/api/v1/units')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.slug', 'centro-servicos');
     }
 
-    private function payload(string $currency = 'BRL'): array
-    {
-        $first = Unit::firstOrCreate(['slug' => 'operacoes'], ['name' => 'Operações', 'company' => 'Grupo Gridmidia']);
-        $second = Unit::firstOrCreate(['slug' => 'tecnologia'], ['name' => 'Tecnologia', 'company' => 'Grupo Gridmidia']);
-
-        return [
-            'description' => 'Licença corporativa', 'supplier' => 'Software Brasil',
-            'date' => '2026-10-09', 'amount' => '0.01', 'currency' => $currency,
-            'allocations' => [['unit_id' => $first->id, 'percentage' => '50'], ['unit_id' => $second->id, 'percentage' => '50']],
-        ];
-    }
-
     public function test_expense_creation_returns_exact_decimal_resource_and_persisted_allocations(): void
     {
         $this->authenticate();
@@ -135,6 +139,16 @@ final class ApiWorkflowTest extends TestCase
         $this->assertDatabaseCount('expenses', 1);
         $this->assertDatabaseCount('allocations', 2);
         $this->assertDatabaseCount('jobs', 0);
+        Http::assertNothingSent();
+    }
+
+    public function test_usd_creation_does_not_accept_client_supplied_conversion_fields(): void
+    {
+        $this->authenticate();
+        $payload = [...$this->payload('USD'), 'status' => 'converted', 'brl_amount_minor' => 999999, 'exchange_rate' => '99'];
+        $this->postJson('/api/v1/expenses', $payload)->assertCreated()->assertJsonPath('data.status', 'pending')
+            ->assertJsonPath('data.brl_amount_minor', null)->assertJsonPath('data.exchange_rate', null);
+        $this->assertDatabaseCount('jobs', 1);
         Http::assertNothingSent();
     }
 
@@ -157,17 +171,38 @@ final class ApiWorkflowTest extends TestCase
         foreach ([['2026-10-01', 'Alpha'], ['2026-10-09', 'Beta'], ['2026-09-30', 'Antes']] as [$date, $description]) {
             app(CreateExpense::class)->handle([...$base, 'date' => $date, 'description' => $description]);
         }
+        app(CreateExpense::class)->handle([...$base, 'currency' => 'USD', 'description' => 'Pendente']);
 
         $query = '/api/v1/expenses?from=2026-10-01&to=2026-10-09&status=converted&currency=BRL&per_page=1';
         $response = $this->getJson($query)->assertOk()->assertJsonPath('meta.total', 2)->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.description', 'Beta');
         $this->assertStringContainsString('status=converted', $response->json('links.next'));
         $this->getJson($query.'&page=2')->assertOk()->assertJsonPath('data.0.description', 'Alpha');
-        $this->getJson('/api/v1/expenses?search=Software')->assertOk()->assertJsonPath('meta.total', 3);
+        $this->getJson('/api/v1/expenses?search=Software')->assertOk()->assertJsonPath('meta.total', 4);
         $this->getJson('/api/v1/expenses?search=Alpha')->assertOk()->assertJsonPath('meta.total', 1);
         $this->getJson('/api/v1/expenses?to=2026-09-30')->assertOk()->assertJsonPath('meta.total', 1);
-        $this->getJson('/api/v1/expenses?from=2026-10-09')->assertOk()->assertJsonPath('meta.total', 1);
+        $this->getJson('/api/v1/expenses?from=2026-10-09')->assertOk()->assertJsonPath('meta.total', 2);
         $this->getJson('/api/v1/expenses?from=2026-10-09&to=2026-10-01')->assertUnprocessable()->assertJsonValidationErrors('to');
         $this->getJson('/api/v1/expenses?per_page=101')->assertUnprocessable()->assertJsonValidationErrors('per_page');
+    }
+
+    public function test_retry_endpoint_uses_state_transition_and_does_not_duplicate_pending_work(): void
+    {
+        $this->authenticate();
+        $expense = app(CreateExpense::class)->handle($this->payload('USD'));
+        (new ConvertExpenseCurrency($expense->id))->failed(new RuntimeException('Provider offline'));
+        $this->postJson('/api/v1/expenses/'.$expense->id.'/retry')->assertAccepted()
+            ->assertJsonPath('data.status', 'pending')->assertJsonPath('data.conversion_error', null);
+        $this->assertSame(2, $expense->refresh()->conversion_version);
+        $this->assertDatabaseCount('jobs', 2);
+        $this->postJson('/api/v1/expenses/'.$expense->id.'/retry')->assertUnprocessable();
+        $this->assertDatabaseCount('jobs', 2);
+    }
+
+    public function test_missing_resources_return_json_404_for_authenticated_clients(): void
+    {
+        $this->authenticate();
+        $this->getJson('/api/v1/expenses/999')->assertNotFound()->assertHeader('Content-Type', 'application/json');
+        $this->assertDatabaseCount('expenses', 0);
     }
 }

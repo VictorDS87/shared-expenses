@@ -12,7 +12,8 @@
     "php": "^8.3",
     "laravel/framework": "^13.17",
     "laravel/tinker": "^3.0",
-    "laravel/sanctum": "^4.0"
+    "laravel/sanctum": "^4.0",
+    "ext-bcmath": "*"
   },
   "require-dev": {
     "fakerphp/faker": "^1.23",
@@ -46,7 +47,7 @@
     ],
     "dev": [
       "Composer\\Config::disableProcessTimeout",
-      "@php artisan dev"
+      "npx concurrently -c \"#2953AC,#FE8400,#52A886\" \"php artisan serve\" \"php artisan queue:work --tries=5 --timeout=30\" \"npm run dev\" --names=web,queue,vite --kill-others"
     ],
     "test": [
       "@php vendor/bin/phpunit"
