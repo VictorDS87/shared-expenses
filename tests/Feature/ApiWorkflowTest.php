@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Actions\CreateExpense;
+use App\Models\Unit;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -42,7 +44,7 @@ final class ApiWorkflowTest extends TestCase
     {
         return [
             ['GET', 'units'], ['POST', 'units'], ['PUT', 'units/999'],
-            ['DELETE', 'auth/token'],
+            ['DELETE', 'auth/token'], ['GET', 'expenses'], ['POST', 'expenses'], ['GET', 'expenses/999'], ['GET', 'reports/units'],
         ];
     }
 
@@ -106,5 +108,66 @@ final class ApiWorkflowTest extends TestCase
         $this->postJson('/api/v1/units', [...$payload, 'slug' => 'outra-unidade', 'company' => str_repeat('A', 121)])
             ->assertUnprocessable()->assertJsonValidationErrors('company');
         $this->getJson('/api/v1/units')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.slug', 'centro-servicos');
+    }
+
+    private function payload(string $currency = 'BRL'): array
+    {
+        $first = Unit::firstOrCreate(['slug' => 'operacoes'], ['name' => 'Operações', 'company' => 'Grupo Gridmidia']);
+        $second = Unit::firstOrCreate(['slug' => 'tecnologia'], ['name' => 'Tecnologia', 'company' => 'Grupo Gridmidia']);
+
+        return [
+            'description' => 'Licença corporativa', 'supplier' => 'Software Brasil',
+            'date' => '2026-10-09', 'amount' => '0.01', 'currency' => $currency,
+            'allocations' => [['unit_id' => $first->id, 'percentage' => '50'], ['unit_id' => $second->id, 'percentage' => '50']],
+        ];
+    }
+
+    public function test_expense_creation_returns_exact_decimal_resource_and_persisted_allocations(): void
+    {
+        $this->authenticate();
+        $response = $this->postJson('/api/v1/expenses', $this->payload())->assertCreated();
+        $response->assertJsonPath('data.amount', '0.01')->assertJsonPath('data.amount_minor', 1)
+            ->assertJsonPath('data.brl_amount', '0.01')->assertJsonPath('data.status', 'converted')
+            ->assertJsonPath('data.allocations.0.amount_minor', 1)->assertJsonPath('data.allocations.1.amount_minor', 0)
+            ->assertJsonPath('data.allocations.0.percentage', '50.00');
+        $this->getJson('/api/v1/expenses/'.$response->json('data.id'))->assertOk()
+            ->assertJsonPath('data.allocations.0.unit.slug', 'operacoes');
+        $this->assertDatabaseCount('expenses', 1);
+        $this->assertDatabaseCount('allocations', 2);
+        $this->assertDatabaseCount('jobs', 0);
+        Http::assertNothingSent();
+    }
+
+    public function test_financial_validation_is_exposed_as_422_with_no_partial_writes(): void
+    {
+        $this->authenticate();
+        $payload = $this->payload();
+        $this->postJson('/api/v1/expenses', [...$payload, 'amount' => 10.12])->assertUnprocessable()->assertJsonValidationErrors('amount');
+        $payload['allocations'][1]['percentage'] = '49.99';
+        $this->postJson('/api/v1/expenses', $payload)->assertUnprocessable()->assertJsonValidationErrors('allocations');
+        $this->assertDatabaseCount('expenses', 0);
+        $this->assertDatabaseCount('allocations', 0);
+        $this->assertDatabaseCount('jobs', 0);
+    }
+
+    public function test_listing_combines_filters_includes_boundaries_and_paginates_stably(): void
+    {
+        $this->authenticate();
+        $base = $this->payload();
+        foreach ([['2026-10-01', 'Alpha'], ['2026-10-09', 'Beta'], ['2026-09-30', 'Antes']] as [$date, $description]) {
+            app(CreateExpense::class)->handle([...$base, 'date' => $date, 'description' => $description]);
+        }
+
+        $query = '/api/v1/expenses?from=2026-10-01&to=2026-10-09&status=converted&currency=BRL&per_page=1';
+        $response = $this->getJson($query)->assertOk()->assertJsonPath('meta.total', 2)->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.description', 'Beta');
+        $this->assertStringContainsString('status=converted', $response->json('links.next'));
+        $this->getJson($query.'&page=2')->assertOk()->assertJsonPath('data.0.description', 'Alpha');
+        $this->getJson('/api/v1/expenses?search=Software')->assertOk()->assertJsonPath('meta.total', 3);
+        $this->getJson('/api/v1/expenses?search=Alpha')->assertOk()->assertJsonPath('meta.total', 1);
+        $this->getJson('/api/v1/expenses?to=2026-09-30')->assertOk()->assertJsonPath('meta.total', 1);
+        $this->getJson('/api/v1/expenses?from=2026-10-09')->assertOk()->assertJsonPath('meta.total', 1);
+        $this->getJson('/api/v1/expenses?from=2026-10-09&to=2026-10-01')->assertUnprocessable()->assertJsonValidationErrors('to');
+        $this->getJson('/api/v1/expenses?per_page=101')->assertUnprocessable()->assertJsonValidationErrors('per_page');
     }
 }

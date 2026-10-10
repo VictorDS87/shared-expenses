@@ -1,0 +1,30 @@
+@extends('layouts.app')
+@section('title', 'Nova despesa')
+@section('breadcrumb', 'Nova despesa')
+@section('content')
+<a href="{{ route('expenses.index') }}" class="back-link"><x-icon name="arrow-left" :size="16"/>Voltar para despesas</a>
+<div class="page-heading"><div><div class="eyebrow">NOVO LANÇAMENTO</div><h1>Nova despesa<span class="orange-dot">.</span></h1><p>Registre o valor original e distribua entre as unidades do grupo.</p></div><span class="required-caption">* Campos obrigatórios</span></div>
+@if($units->isEmpty())<div class="notice notice-info"><x-icon name="info"/><span>Cadastre pelo menos uma unidade antes de lançar despesas. <a href="{{ route('units.index') }}">Cadastrar unidade</a></span></div>@endif
+<form action="{{ route('expenses.store') }}" method="POST" id="expense-form" data-expense-form>
+@csrf
+<div class="form-layout"><div class="form-main">
+    <section class="panel form-panel"><div class="panel-heading"><div class="numbered-title"><span>01</span><div><h2>Dados da despesa</h2><p>As informações que identificam este lançamento.</p></div></div></div><div class="panel-body form-grid">
+        <div class="field span-2"><label for="description">Descrição *</label><input id="description" name="description" value="{{ old('description') }}" required maxlength="255" placeholder="Ex.: Licenças de software — outubro" autofocus>@error('description')<span class="field-error">{{ $message }}</span>@enderror</div>
+        <div class="field"><label for="supplier">Fornecedor *</label><input id="supplier" name="supplier" value="{{ old('supplier') }}" required maxlength="160" placeholder="Nome do fornecedor">@error('supplier')<span class="field-error">{{ $message }}</span>@enderror</div>
+        <div class="field"><label for="date">Data da despesa *</label><input id="date" type="date" name="date" max="{{ now()->toDateString() }}" value="{{ old('date', now()->toDateString()) }}" required>@error('date')<span class="field-error">{{ $message }}</span>@enderror</div>
+        <div class="field"><label for="currency">Moeda original *</label><select id="currency" name="currency" data-currency>@foreach(['BRL' => 'BRL — Real brasileiro'] as $code => $label)<option value="{{ $code }}" @selected(old('currency', 'BRL') === $code)>{{ $label }}</option>@endforeach</select></div>
+        <div class="field"><label for="amount">Valor total *</label><div class="input-prefix"><span data-currency-symbol>R$</span><input id="amount" name="amount" inputmode="decimal" value="{{ old('amount') }}" required pattern="[0-9]+([.,][0-9]{1,2})?" placeholder="0,00" data-amount></div><small>Até duas casas decimais. Sem separador de milhar.</small>@error('amount')<span class="field-error">{{ $message }}</span>@enderror</div>
+    </div></section>
+    <section class="panel form-panel"><div class="panel-heading"><div class="numbered-title"><span>02</span><div><h2>Rateio entre unidades</h2><p>Distribua exatamente 100% do valor original.</p></div></div><span class="count-badge" data-allocation-total>0%</span></div><div class="panel-body">
+        <div class="allocation-head"><span>Unidade *</span><span>Percentual *</span><span>Valor estimado</span><span></span></div>
+        <div data-allocation-rows>
+        @foreach(old('allocations', [['unit_id' => '', 'percentage' => '100']]) as $index => $allocation)
+        <div class="allocation-row"><div class="field"><label class="sr-only" for="unit-{{ $index }}">Unidade do rateio {{ $index + 1 }}</label><select id="unit-{{ $index }}" name="allocations[{{ $index }}][unit_id]" required data-unit><option value="">Selecione a unidade</option>@foreach($units as $unit)<option value="{{ $unit->id }}" @selected(($allocation['unit_id'] ?? '') == $unit->id)>{{ $unit->name }} · {{ $unit->company }}</option>@endforeach</select></div><div class="input-suffix"><input aria-label="Percentual da unidade {{ $index + 1 }}" name="allocations[{{ $index }}][percentage]" value="{{ $allocation['percentage'] ?? '' }}" inputmode="decimal" required pattern="[0-9]+([.,][0-9]{1,2})?" data-percentage><span>%</span></div><span class="allocation-preview" data-row-amount>R$ 0,00</span><button type="button" class="icon-button remove-allocation" data-remove-allocation aria-label="Remover unidade do rateio"><x-icon name="trash" :size="17"/></button></div>
+        @endforeach
+        </div>
+        <div class="allocation-actions"><button type="button" class="button button-ghost button-small" data-add-allocation @disabled($units->isEmpty())><x-icon name="plus" :size="16"/>Adicionar unidade</button><span class="allocation-feedback" data-allocation-feedback role="status"></span></div>
+        <div class="subtle-note"><x-icon name="info" :size="16"/><span>O arredondamento distribui os centavos restantes de forma determinística, preservando o valor total da despesa.</span></div>
+    </div></section>
+</div><aside class="form-aside"><section class="panel summary-card"><div class="panel-heading"><h2>Resumo do lançamento</h2><x-icon name="receipt"/></div><div class="panel-body"><span class="summary-label">Valor original</span><div class="summary-amount" data-summary-amount>R$ 0,00</div><div class="summary-divider"></div><dl class="summary-list"><div><dt>Moeda</dt><dd data-summary-currency>BRL</dd></div><div><dt>Unidades no rateio</dt><dd data-summary-units>1</dd></div><div><dt>Percentual distribuído</dt><dd data-summary-percent>100%</dd></div></dl><div class="conversion-note"><x-icon name="globe" :size="19"/><div><strong>Rateio preciso</strong><p>Os valores em reais ficam disponíveis assim que o lançamento é registrado.</p></div></div><button type="submit" class="button button-primary button-full" @disabled($units->isEmpty()) data-submit-expense>Registrar despesa<x-icon name="arrow-right" :size="17"/></button><a href="{{ route('expenses.index') }}" class="cancel-link">Cancelar lançamento</a></div></section></aside></div>
+</form>
+@endsection

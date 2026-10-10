@@ -11,7 +11,7 @@ class UnitController extends Controller
 {
     public function index()
     {
-        return view('units.index', ['units' => Unit::query()->orderBy('company')->orderBy('name')->get()]);
+        return view('units.index', ['units' => Unit::withCount('allocations')->orderBy('company')->orderBy('name')->get()]);
     }
 
     public function store(Request $request)

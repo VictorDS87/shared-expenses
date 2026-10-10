@@ -14,13 +14,13 @@
     <div class="workspace-label"><span class="workspace-symbol"><x-icon name="building" :size="17"/></span><span>Gestão corporativa<small>Grupo Gridmidia</small></span><span class="workspace-dot"></span></div>
     <div class="nav-label">WORKSPACE</div>
     <nav class="main-nav">
-    @foreach([['units.*', 'building', 'Unidades']] as [$pattern, $icon, $label])
+    @foreach([['dashboard', 'grid', 'Visão geral'], ['expenses.*', 'receipt', 'Despesas'], ['units.*', 'building', 'Unidades'], ['reports.*', 'chart', 'Relatórios']] as [$pattern, $icon, $label])
         @php($linkRoute = $pattern === 'dashboard' ? $pattern : str_replace('.*', '.index', $pattern))
         <a href="{{ route($linkRoute) }}" @class(['nav-link', 'active' => request()->routeIs($pattern)]) @if(request()->routeIs($pattern)) aria-current="page" @endif><x-icon :name="$icon" :size="20"/><span>{{ $label }}</span>@if(request()->routeIs($pattern))<span class="nav-active-dot"></span>@endif</a>
     @endforeach
     </nav>
     <div class="sidebar-bottom">
-        <div class="sidebar-note"><span class="sidebar-note-icon"><x-icon name="shield" :size="20"/></span><strong>Clareza em cada centavo.</strong><p>Organize os centros de custo das empresas do grupo.</p></div>
+        <div class="sidebar-note"><span class="sidebar-note-icon"><x-icon name="shield" :size="20"/></span><strong>Clareza em cada centavo.</strong><p>Despesas e rateios em um só lugar.</p></div>
         <div class="sidebar-user"><span class="avatar">{{ mb_strtoupper(mb_substr(auth()->user()->name, 0, 1)) }}</span><span class="user-meta"><strong>{{ auth()->user()->name }}</strong><small>Equipe financeira</small></span><form action="{{ route('logout') }}" method="POST">@csrf<button class="logout-button" title="Sair da conta" aria-label="Sair da conta"><x-icon name="logout" :size="18"/></button></form></div>
     </div>
 </aside>

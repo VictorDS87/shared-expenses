@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Expense;
 use App\Models\Unit;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -70,7 +71,7 @@ class WebWorkflowTest extends TestCase
     public function test_empty_database_has_a_usable_units_page(): void
     {
         $this->actingAs(User::factory()->create());
-        $this->get('/')->assertRedirect('/unidades');
+        $this->get('/')->assertOk();
         $this->get('/unidades')->assertOk()->assertSee('Comece pela estrutura do grupo');
     }
 
@@ -78,10 +79,40 @@ class WebWorkflowTest extends TestCase
     {
         $this->seed();
         $original = User::first()->password;
+        $expenses = Expense::count();
         $this->seed();
         $this->assertDatabaseCount('users', 1);
         $this->assertDatabaseCount('units', 5);
+        $this->assertSame($expenses, Expense::count());
         $this->assertSame($original, User::first()->password);
         $this->actingAs(User::first())->get('/unidades')->assertOk();
+    }
+
+    public function test_all_financial_pages_render_with_demo_data(): void
+    {
+        $this->seed();
+        $this->actingAs(User::first());
+        foreach (['/', '/despesas', '/despesas/nova', '/unidades', '/relatorios', '/despesas/'.Expense::first()->id] as $url) {
+            $this->get($url)->assertOk();
+        }
+        $this->get('/relatorios/exportar')->assertOk()->assertDownload();
+    }
+
+    public function test_empty_database_has_usable_financial_pages(): void
+    {
+        $this->actingAs(User::factory()->create());
+        foreach (['/', '/despesas', '/despesas/nova', '/relatorios'] as $url) {
+            $this->get($url)->assertOk();
+        }
+    }
+
+    public function test_report_export_neutralizes_spreadsheet_formulas(): void
+    {
+        $this->actingAs(User::factory()->create());
+        Unit::create(['name' => '=1+1', 'company' => '@SUM(A1)', 'slug' => 'formula']);
+        $response = $this->get('/relatorios/exportar')->assertOk()->assertDownload();
+        $content = $response->streamedContent();
+        $this->assertStringContainsString("'=1+1", $content);
+        $this->assertStringContainsString("'@SUM(A1)", $content);
     }
 }
