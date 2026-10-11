@@ -14,7 +14,7 @@
     <div class="workspace-label"><span class="workspace-symbol"><x-icon name="building" :size="17"/></span><span>Gestão corporativa<small>Grupo Gridmidia</small></span><span class="workspace-dot"></span></div>
     <div class="nav-label">WORKSPACE</div>
     <nav class="main-nav">
-    @foreach([['dashboard', 'grid', 'Visão geral'], ['expenses.*', 'receipt', 'Despesas'], ['units.*', 'building', 'Unidades'], ['reports.*', 'chart', 'Relatórios']] as [$pattern, $icon, $label])
+    @foreach([['dashboard', 'grid', 'Visão geral'], ['expenses.*', 'receipt', 'Despesas'], ['units.*', 'building', 'Unidades'], ['imports.*', 'upload', 'Importações'], ['reports.*', 'chart', 'Relatórios']] as [$pattern, $icon, $label])
         @php($linkRoute = $pattern === 'dashboard' ? $pattern : str_replace('.*', '.index', $pattern))
         <a href="{{ route($linkRoute) }}" @class(['nav-link', 'active' => request()->routeIs($pattern)]) @if(request()->routeIs($pattern)) aria-current="page" @endif><x-icon :name="$icon" :size="20"/><span>{{ $label }}</span>@if(request()->routeIs($pattern))<span class="nav-active-dot"></span>@endif</a>
     @endforeach

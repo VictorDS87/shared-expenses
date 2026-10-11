@@ -120,3 +120,43 @@ test('USD is saved before conversion without contributing to consolidated BRL', 
   await page.goto('/relatorios?from=2025-02-01&to=2025-02-01');
   await expect(page.locator('main')).toContainText('0,00');
 });
+
+test('CSV repeated upload separates ignored rows from new imports', async ({ page }) => {
+  await login(page);
+  const csv = 'data;descricao;fornecedor;valor;moeda;rateio\n2026-09-01;Browser CSV;Supplier;12.34;BRL;corporativo:100\n2026-09-01;Invalid;Supplier;10;BRL;corporativo:80\n';
+  const upload = async () => {
+    await page.goto('/importacoes');
+    await page.locator('input[type=file]').setInputFiles({ name: 'browser.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) });
+    await page.locator('form[action$="/importacoes"] button[type=submit]').click();
+    await expect(page).toHaveURL(/\/importacoes\/\d+$/);
+  };
+  await upload();
+  const url = page.url();
+  await expect(page.locator('main')).toContainText('Linha 3');
+  await expect(page.getByRole('link', { name: /Ver despesa #/ })).toBeVisible();
+  await expect(page.locator('main')).toContainText('Browser CSV');
+  await expect(page.locator('.stat-value.text-success')).toHaveText('1');
+  await upload();
+  expect(page.url()).not.toBe(url);
+  await expect(page.locator('.stat-value.text-success')).toHaveText('0');
+  await expect(page.locator('[data-ignored-rows]')).toHaveText('1');
+  await expect(page.getByRole('link', { name: /Ver importação original/ })).toHaveAttribute('href', url);
+  await expect(page.locator('main')).toContainText('Linha 3');
+});
+
+test('report period and CSV export include imported values', async ({ page }) => {
+  await login(page);
+  await page.goto('/importacoes');
+  await page.locator('input[type=file]').setInputFiles({ name: 'export.csv', mimeType: 'text/csv', buffer: Buffer.from('data;descricao;fornecedor;valor;moeda;rateio\n2025-01-01;Export fixture;Supplier;28.34;BRL;corporativo:100\n') });
+  await page.locator('form[action$="/importacoes"] button[type=submit]').click();
+  await expect(page).toHaveURL(/\/importacoes\/\d+$/);
+  await page.goto('/relatorios?from=2025-01-01&to=2025-01-01');
+  await expect(page.locator('main')).toContainText('28,34');
+  const download = page.waitForEvent('download');
+  await page.locator('a[href*="/relatorios/exportar"]').click();
+  const file = await download;
+  const stream = await file.createReadStream();
+  const chunks = [];
+  for await (const chunk of stream) chunks.push(chunk);
+  expect(Buffer.concat(chunks).toString('utf8')).toContain('28,34');
+});

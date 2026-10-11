@@ -136,3 +136,30 @@ if (expenseForm) {
     });
     refreshAllocation();
 }
+
+const importForm = $('[data-import-form]');
+if (importForm) {
+    const fileInput = $('[data-file-input]', importForm);
+    const dropzone = $('[data-dropzone]', importForm);
+    function selectedFile() {
+        const file = fileInput.files?.[0];
+        fileInput.setCustomValidity('');
+        if (!file) return;
+        $('[data-file-label]', dropzone).textContent = file.name;
+        $('[data-file-size]', dropzone).textContent = `${(file.size / 1024).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} KB · Pronto para processar`;
+        if (!/\.(csv|txt)$/i.test(file.name)) fileInput.setCustomValidity('Selecione um arquivo CSV.');
+        if (file.size > 2 * 1024 * 1024) fileInput.setCustomValidity('O arquivo deve ter no máximo 2 MB.');
+        if (fileInput.validationMessage) {
+            $('[data-file-size]', dropzone).textContent = fileInput.validationMessage;
+            fileInput.reportValidity();
+        }
+    }
+    fileInput.addEventListener('change', selectedFile);
+    ['dragenter', 'dragover'].forEach((name) => dropzone.addEventListener(name, () => dropzone.classList.add('drag-over')));
+    ['dragleave', 'drop'].forEach((name) => dropzone.addEventListener(name, () => dropzone.classList.remove('drag-over')));
+    importForm.addEventListener('submit', () => {
+        const button = $('[data-import-submit]');
+        button.disabled = true;
+        button.textContent = 'Processando arquivo…';
+    });
+}

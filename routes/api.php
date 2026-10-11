@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\ExpenseController;
+use App\Http\Controllers\Api\ImportController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\UnitController;
 use App\Http\Controllers\AuthController;
@@ -17,6 +18,9 @@ Route::prefix('v1')->group(function () {
         Route::post('expenses', [ExpenseController::class, 'store']);
         Route::get('expenses/{expense}', [ExpenseController::class, 'show']);
         Route::post('expenses/{expense}/retry', [ExpenseController::class, 'retry'])->middleware('throttle:10,1');
+        Route::post('imports', [ImportController::class, 'store'])->middleware('throttle:10,1');
+        Route::post('imports/{import}/resume', [ImportController::class, 'resume'])->middleware('throttle:10,1');
+        Route::get('imports/{import}', [ImportController::class, 'show']);
         Route::get('reports/units', ReportController::class);
     });
 });

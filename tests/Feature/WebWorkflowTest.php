@@ -92,7 +92,7 @@ class WebWorkflowTest extends TestCase
     {
         $this->seed();
         $this->actingAs(User::first());
-        foreach (['/', '/despesas', '/despesas/nova', '/unidades', '/relatorios', '/despesas/'.Expense::first()->id] as $url) {
+        foreach (['/', '/despesas', '/despesas/nova', '/unidades', '/importacoes', '/relatorios', '/despesas/'.Expense::first()->id] as $url) {
             $this->get($url)->assertOk();
         }
         $this->get('/relatorios/exportar')->assertOk()->assertDownload();
@@ -101,7 +101,7 @@ class WebWorkflowTest extends TestCase
     public function test_empty_database_has_usable_financial_pages(): void
     {
         $this->actingAs(User::factory()->create());
-        foreach (['/', '/despesas', '/despesas/nova', '/relatorios'] as $url) {
+        foreach (['/', '/despesas', '/despesas/nova', '/importacoes', '/relatorios'] as $url) {
             $this->get($url)->assertOk();
         }
     }

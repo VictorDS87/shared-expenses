@@ -1,0 +1,87 @@
+name: Quality
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-24.04
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: shared_expenses_test
+          MYSQL_USER: finance
+          MYSQL_PASSWORD: shared_expenses_test
+          MYSQL_ROOT_PASSWORD: root_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --host=127.0.0.1 --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    env:
+      APP_ENV: testing
+      APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_DATABASE: shared_expenses_test
+      DB_USERNAME: finance
+      DB_PASSWORD: shared_expenses_test
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+      QUEUE_CONNECTION: sync
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: bcmath, intl, mbstring, pdo_mysql, pdo_sqlite
+          coverage: none
+          tools: composer:v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+      - name: Install and build frontend
+        run: |
+          npm ci
+          npm run build
+      - name: Validate Composer metadata
+        run: composer validate --strict
+      - name: Check style
+        run: vendor/bin/pint --test
+      - name: Apply migrations on MySQL
+        run: php artisan migrate --force
+      - name: Run tests on MySQL
+        run: php vendor/bin/phpunit --fail-on-warning
+
+      - name: Run real process concurrency checks
+        env:
+          DB_DATABASE: shared_expenses_concurrency_test
+        run: |
+          MYSQL_PWD=root_test mysql -h127.0.0.1 -uroot -e "CREATE DATABASE shared_expenses_concurrency_test; GRANT ALL ON shared_expenses_concurrency_test.* TO 'finance'@'%';"
+          php tests/Concurrency/run.php
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+      - name: Run browser workflows on isolated SQLite
+        run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-diagnostics
+          path: |
+            playwright-report/
+            test-results/

@@ -1,0 +1,3 @@
+data;descricao;fornecedor;valor;moeda;rateio
+2026-09-01;Licença CRM;Fornecedor X;1500.00;USD;corporativo:50|fdr:30|adseleto:20
+2026-09-02;Serviço de internet;Fornecedor Y;100.00;BRL;corporativo:33.34|fdr:33.33|adseleto:33.33

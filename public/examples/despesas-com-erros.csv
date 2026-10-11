@@ -1,0 +1,5 @@
+data;descricao;fornecedor;valor;moeda;rateio
+2026-09-01;Linha válida;Fornecedor X;100.00;BRL;corporativo:50|fdr:50
+2026-09-02;Soma inválida;Fornecedor Y;100.00;BRL;corporativo:60|fdr:20
+2026-09-03;Unidade inválida;Fornecedor Z;50.00;BRL;nao-existe:100
+2026-09-04;Outra válida;Fornecedor X;75.90;BRL;adseleto:100

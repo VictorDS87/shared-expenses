@@ -1,0 +1,4 @@
+data;descricao;fornecedor;valor;moeda;rateio
+2026-09-03;Teste de importação - cobrança repetida;Fornecedor de teste;10.01;BRL;corporativo:50|fdr:50
+2026-09-03;Teste de importação - cobrança repetida;Fornecedor de teste;10.01;BRL;corporativo:50|fdr:50
+2026-09-03;Teste de importação - três unidades;Fornecedor de teste;100.00;BRL;corporativo:33.34|fdr:33.33|adseleto:33.33

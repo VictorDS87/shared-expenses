@@ -59,7 +59,7 @@ final class ApiWorkflowTest extends TestCase
         return [
             ['GET', 'units'], ['POST', 'units'], ['PUT', 'units/999'],
             ['GET', 'expenses'], ['POST', 'expenses'], ['GET', 'expenses/999'],
-            ['POST', 'expenses/999/retry'],
+            ['POST', 'expenses/999/retry'], ['POST', 'imports'], ['GET', 'imports/999'],
             ['GET', 'reports/units'], ['DELETE', 'auth/token'],
         ];
     }
@@ -203,6 +203,7 @@ final class ApiWorkflowTest extends TestCase
     {
         $this->authenticate();
         $this->getJson('/api/v1/expenses/999')->assertNotFound()->assertHeader('Content-Type', 'application/json');
+        $this->getJson('/api/v1/imports/999')->assertNotFound();
         $this->assertDatabaseCount('expenses', 0);
     }
 }

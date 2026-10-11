@@ -1,0 +1,40 @@
+<?php
+
+return [
+    'required' => 'O campo :attribute é obrigatório.',
+    'string' => 'O campo :attribute deve ser um texto.',
+    'array' => 'O campo :attribute tem um formato inválido.',
+    'email' => 'Informe um e-mail válido.',
+    'integer' => 'O campo :attribute deve ser um número inteiro.',
+    'date_format' => 'O campo :attribute deve seguir o formato :format.',
+    'before_or_equal' => 'O campo :attribute deve ser uma data até :date.',
+    'after_or_equal' => 'O campo :attribute deve ser igual ou posterior a :date.',
+    'in' => 'O valor selecionado para :attribute é inválido.',
+    'exists' => 'O valor selecionado para :attribute não existe.',
+    'distinct' => 'O campo :attribute está duplicado.',
+    'unique' => 'Este :attribute já está em uso.',
+    'regex' => 'O campo :attribute tem um formato inválido.',
+    'file' => 'Selecione um arquivo válido.',
+    'uploaded' => 'Não foi possível receber o arquivo. Confira seu tamanho.',
+    'extensions' => 'O arquivo deve ter uma destas extensões: :values.',
+    'mimes' => 'O arquivo deve ter um destes formatos: :values.',
+    'max' => [
+        'string' => 'O campo :attribute deve ter no máximo :max caracteres.',
+        'numeric' => 'O campo :attribute deve ser no máximo :max.',
+        'array' => 'O campo :attribute deve ter no máximo :max itens.',
+        'file' => 'O arquivo deve ter no máximo :max KB.',
+    ],
+    'min' => [
+        'string' => 'O campo :attribute deve ter pelo menos :min caracteres.',
+        'numeric' => 'O campo :attribute deve ser no mínimo :min.',
+        'array' => 'O campo :attribute deve ter pelo menos :min item.',
+    ],
+    'attributes' => [
+        'email' => 'e-mail', 'password' => 'senha', 'name' => 'nome', 'company' => 'empresa',
+        'slug' => 'identificador', 'description' => 'descrição', 'supplier' => 'fornecedor',
+        'date' => 'data', 'amount' => 'valor', 'currency' => 'moeda', 'allocations' => 'rateio',
+        'allocations.*.unit_id' => 'unidade', 'allocations.*.percentage' => 'percentual',
+        'file' => 'arquivo', 'from' => 'data inicial', 'to' => 'data final',
+        'month' => 'mês', 'status' => 'status', 'search' => 'busca',
+    ],
+];

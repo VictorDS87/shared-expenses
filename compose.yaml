@@ -1,0 +1,110 @@
+name: shared-expenses
+
+x-app: &app
+  image: shared-expenses-app:local
+  build:
+    context: .
+    target: app
+  env_file: .env
+  environment: &app-environment
+    APP_ENV: ${APP_ENV:-local}
+    APP_DEBUG: ${APP_DEBUG:-false}
+    APP_URL: ${APP_URL:-http://localhost:8080}
+    DB_CONNECTION: mysql
+    DB_HOST: db
+    DB_PORT: 3306
+    DB_DATABASE: ${DB_DATABASE:-grid_finance}
+    DB_USERNAME: ${DB_USERNAME:-grid}
+    DB_PASSWORD: ${DB_PASSWORD:-grid_local_password}
+    QUEUE_CONNECTION: database
+    SESSION_DRIVER: database
+    CACHE_STORE: database
+    LOG_CHANNEL: stderr
+  volumes:
+    - app-storage:/var/www/html/storage
+
+services:
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-grid_finance}
+      MYSQL_USER: ${DB_USERNAME:-grid}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-grid_local_password}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_local_password}
+    ports:
+      - "127.0.0.1:${FORWARD_DB_PORT:-3307}:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_PASSWORD\" mysql --host=127.0.0.1 --user=\"$$MYSQL_USER\" --database=\"$$MYSQL_DATABASE\" --silent --execute='SELECT 1' > /dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    restart: unless-stopped
+
+  app:
+    <<: *app
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    image: shared-expenses-web:local
+    build:
+      context: .
+      target: web
+    ports:
+      - "127.0.0.1:${APP_PORT:-8080}:80"
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    <<: *app
+    command: ["php", "artisan", "queue:work", "database", "--queue=default", "--sleep=2", "--tries=5", "--timeout=60", "--max-time=3600"]
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "grep -q 'queue:work' /proc/1/cmdline"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    stop_grace_period: 70s
+    restart: unless-stopped
+
+  init:
+    <<: *app
+    profiles: ["setup"]
+    command: ["php", "artisan", "migrate", "--force"]
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    restart: "no"
+
+  check:
+    image: shared-expenses-check:local
+    build:
+      context: .
+      target: development
+    profiles: ["tools"]
+    environment:
+      APP_ENV: testing
+      APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      DB_CONNECTION: sqlite
+      DB_DATABASE: ":memory:"
+      QUEUE_CONNECTION: sync
+      SESSION_DRIVER: array
+      CACHE_STORE: array
+    command: ["composer", "check"]
+    healthcheck:
+      disable: true
+
+volumes:
+  mysql-data:
+  app-storage:
