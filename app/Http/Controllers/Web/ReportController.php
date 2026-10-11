@@ -36,7 +36,7 @@ class ReportController extends Controller
     private function period(Request $request): array
     {
         $request->merge(['from' => $request->input('from') ?: now()->startOfMonth()->toDateString(), 'to' => $request->input('to') ?: now()->endOfMonth()->toDateString()]);
-        $validated = $request->validate(['from' => ['required', 'date_format:Y-m-d'], 'to' => ['required', 'date_format:Y-m-d', 'after_or_equal:from']]);
+        $validated = $request->validate(['from' => ['required', 'date_format:Y-m-d'], 'to' => ['required', 'date_format:Y-m-d', ...(is_string($request->input('from')) ? ['after_or_equal:from'] : [])]]);
 
         return [$validated['from'], $validated['to']];
     }

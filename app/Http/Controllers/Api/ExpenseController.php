@@ -16,7 +16,7 @@ class ExpenseController extends Controller
         $data = $request->validate([
             'search' => ['nullable', 'string', 'max:100'], 'status' => ['nullable', 'in:pending,converted,failed'],
             'currency' => ['nullable', 'in:BRL,USD'], 'from' => ['nullable', 'date_format:Y-m-d'],
-            'to' => ['nullable', 'date_format:Y-m-d', ...($request->filled('from') ? ['after_or_equal:from'] : [])],
+            'to' => ['nullable', 'date_format:Y-m-d', ...($request->filled('from') && is_string($request->input('from')) ? ['after_or_equal:from'] : [])],
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
         ]);
         $query = Expense::query()->with('allocations.unit');

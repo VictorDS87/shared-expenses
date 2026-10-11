@@ -160,3 +160,20 @@ test('report period and CSV export include imported values', async ({ page }) =>
   for await (const chunk of stream) chunks.push(chunk);
   expect(Buffer.concat(chunks).toString('utf8')).toContain('28,34');
 });
+
+
+test('returning to a submitted form refreshes restored values and leaves submission usable', async ({ page }) => {
+  await login(page);
+  await page.goto('/despesas/nova');
+  await page.locator('#description').fill('Browser history restoration');
+  await page.locator('#supplier').fill('Browser supplier');
+  await page.locator('#amount').fill('10,99');
+  await page.locator('[data-unit]').first().selectOption({ index: 1 });
+  await page.getByRole('button', { name: 'Registrar despesa' }).click();
+  await expect(page).toHaveURL(/\/despesas\/\d+$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/despesas\/nova$/);
+  const amount = await page.locator('#amount').inputValue();
+  await expect(page.locator('[data-summary-amount]')).toHaveText(amount ? 'R$ 10,99' : 'R$ 0,00');
+  await expect(page.getByRole('button', { name: 'Registrar despesa' })).toBeEnabled();
+});

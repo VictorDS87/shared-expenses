@@ -129,10 +129,17 @@ if (expenseForm) {
         refreshAllocation();
     });
     expenseForm.addEventListener('change', refreshAllocation);
+    const submitButton = $('[data-submit-expense]', expenseForm);
+    const initialSubmitMarkup = submitButton.innerHTML;
+    const initiallyDisabled = submitButton.disabled;
     expenseForm.addEventListener('submit', () => {
-        const button = $('[data-submit-expense]');
-        button.disabled = true;
-        button.textContent = 'Registrando despesa…';
+        submitButton.disabled = true;
+        submitButton.textContent = 'Registrando despesa…';
+    });
+    window.addEventListener('pageshow', () => {
+        refreshAllocation();
+        submitButton.disabled = initiallyDisabled;
+        submitButton.innerHTML = initialSubmitMarkup;
     });
     refreshAllocation();
 }
@@ -157,9 +164,15 @@ if (importForm) {
     fileInput.addEventListener('change', selectedFile);
     ['dragenter', 'dragover'].forEach((name) => dropzone.addEventListener(name, () => dropzone.classList.add('drag-over')));
     ['dragleave', 'drop'].forEach((name) => dropzone.addEventListener(name, () => dropzone.classList.remove('drag-over')));
+    const submitButton = $('[data-import-submit]', importForm);
+    const initialSubmitMarkup = submitButton.innerHTML;
     importForm.addEventListener('submit', () => {
-        const button = $('[data-import-submit]');
-        button.disabled = true;
-        button.textContent = 'Processando arquivo…';
+        submitButton.disabled = true;
+        submitButton.textContent = 'Processando arquivo…';
+    });
+    window.addEventListener('pageshow', () => {
+        selectedFile();
+        submitButton.disabled = false;
+        submitButton.innerHTML = initialSubmitMarkup;
     });
 }

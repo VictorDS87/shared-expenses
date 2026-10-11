@@ -19,7 +19,7 @@ class ExpenseController extends Controller
             'status' => ['nullable', Rule::in(['pending', 'converted', 'failed'])],
             'currency' => ['nullable', Rule::in(['BRL', 'USD'])],
             'from' => ['nullable', 'date_format:Y-m-d'],
-            'to' => ['nullable', 'date_format:Y-m-d', ...($request->filled('from') ? ['after_or_equal:from'] : [])],
+            'to' => ['nullable', 'date_format:Y-m-d', ...($request->filled('from') && is_string($request->input('from')) ? ['after_or_equal:from'] : [])],
         ]);
         $expenses = Expense::query()->with('allocations.unit')
             ->when($filters['search'] ?? null, fn ($query, $value) => $query->where(fn ($query) => $query->where('description', 'like', '%'.$value.'%')->orWhere('supplier', 'like', '%'.$value.'%')))
